@@ -1,0 +1,15 @@
+[
+  {
+    "Name": "New Profile",
+    "Projects": [
+      {
+        "Path": "SpetoTex\\SpetoTex.csproj",
+        "Action": "Start"
+      },
+      {
+        "Path": "FronSTTS\\FronSTTS.csproj",
+        "Action": "Start"
+      }
+    ]
+  }
+]

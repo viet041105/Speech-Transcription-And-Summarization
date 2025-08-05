@@ -1,0 +1,162 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>File Upload with SignalR</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/7.0.5/signalr.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f0f0f0;
+            display: flex;
+            height: 100vh;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .container {
+            background: white;
+            padding: 20px;
+            width: 500px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+
+        input, button {
+            margin-top: 10px;
+            width: 100%;
+            padding: 10px;
+            box-sizing: border-box;
+        }
+
+        .message, .result-box {
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 4px;
+        }
+
+        .success {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .result-box {
+            background: #e9ecef;
+            max-height: 200px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+
+        h4 {
+            margin-bottom: 5px;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>🎧 Upload MP3 / MP4</h2>
+        <input type="file" id="fileInput" accept=".mp3,.mp4" />
+        <button onclick="uploadFile()">Upload</button>
+
+        <div id="message" class="message" style="display: none;"></div>
+
+        <h4>📜 Full Transcript:</h4>
+        <div id="fullTranscript" class="result-box">Waiting for transcript...</div>
+
+        <h4>📝 Summary:</h4>
+        <div id="summary" class="result-box">Waiting for summary...</div>
+    </div>
+
+    <script>
+        let connection;
+        let currentJobId = null;
+        async function uploadFile() {
+            const fileInput = document.getElementById("fileInput");
+            const file = fileInput.files[0];
+            const message = document.getElementById("message");
+
+            message.style.display = 'none';
+            message.className = 'message';
+
+            if (!file) {
+                message.textContent = 'Please select a file.';
+                message.classList.add('error');
+                message.style.display = 'block';
+                return;
+            }
+
+            const allowedExtensions = ['.mp3', '.mp4'];
+            const fileExtension = file.name.toLowerCase().split('.').pop();
+            if (!allowedExtensions.includes(`.${fileExtension}`)) {
+                message.textContent = 'Only .mp3 or .mp4 files are allowed.';
+                message.classList.add('error');
+                message.style.display = 'block';
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append("Video", file); // Updated key to match DTO
+
+            try {
+                const response = await fetch("http://localhost:5243/api/VideoUpload/upload", {
+                    method: "POST",
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(result.message || "Upload failed.");
+                }
+
+                currentJobId = result.videoId; // Update to match server response
+                message.textContent = `✅ Uploaded successfully! Job ID: ${currentJobId}`;
+                message.classList.add('success');
+                message.style.display = 'block';
+
+                await setupSignalR(currentJobId);
+
+            } catch (err) {
+                message.textContent = `❌ Upload error: ${err.message}`;
+                message.classList.add('error');
+                message.style.display = 'block';
+            }
+        }
+
+        async function setupSignalR(jobId) {
+            const fullTranscriptDiv = document.getElementById("fullTranscript");
+            const summaryDiv = document.getElementById("summary");
+
+            connection = new signalR.HubConnectionBuilder()
+                .withUrl("http://localhost:5243/videoProcessingHub")
+                .withAutomaticReconnect()
+                .build();
+
+            connection.on("ReceiveProcessingResult", (jsonResult) => {
+                try {
+                    const result = JSON.parse(jsonResult);
+                    fullTranscriptDiv.textContent = result.full_transcript || "[No transcript received]";
+                    summaryDiv.textContent = result.summary || "[No summary received]";
+                } catch (e) {
+                    fullTranscriptDiv.textContent = "[❌ Failed to parse result]";
+                    summaryDiv.textContent = "";
+                }
+            });
+
+            try {
+                await connection.start();
+                console.log("✅ SignalR connected.");
+                await connection.invoke("JoinGroup", jobId);
+                console.log(`📡 Joined SignalR group: ${jobId}`);
+            } catch (err) {
+                console.error("❌ SignalR connection failed:", err);
+            }
+        }
+    </script>
+</body>
+</html>
