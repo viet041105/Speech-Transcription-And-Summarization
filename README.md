@@ -1,5 +1,3 @@
-![z6877610200454_41a3af92163d26239157add23d55baef](https://github.com/user-attachments/assets/b5f68cc8-1033-4493-a8fb-33653b6b96f2)Of course! Here is the README file translated into professional and engaging English, suitable for your GitHub project.
-
 🚀 Speech-to-Text & Summarization API
 Transform any audio or video file into a detailed transcript and an intelligent summary with a single API call. This project provides a powerful and easy-to-use solution for automating the processing and understanding of audio content.
 
